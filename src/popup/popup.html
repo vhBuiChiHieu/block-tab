@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto Block Tab</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="title">🛡️ Auto Block Tab</h1>
+      <div class="header-actions">
+        <!-- Sync icons -->
+        <div class="sync-icons">
+          <button class="icon-btn" id="importBtn" title="Nhập từ file JSON">📥</button>
+          <button class="icon-btn" id="exportBtn" title="Xuất ra file JSON">📤</button>
+          <input type="file" id="importFile" accept=".json" hidden>
+        </div>
+        <!-- Toggle -->
+        <div class="toggle-container">
+          <label class="toggle">
+            <input type="checkbox" id="enableToggle" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label" id="toggleLabel">Bật</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats">
+      <span class="stat-count" id="blockedCount">0</span>
+      <span class="stat-label">tab đã chặn</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="name">Tên Domain</button>
+      <button class="tab" data-tab="suffix">Đuôi Domain</button>
+    </div>
+
+    <!-- Tab Content: Name Blacklist -->
+    <div class="tab-content active" id="name-content">
+      <div class="input-group">
+        <input type="text" id="nameInput" placeholder="VD: ads, tracking, popup">
+        <button class="btn-add" id="addName">+</button>
+      </div>
+      <p class="hint">Chặn domain có chứa tên này (giữa 2 dấu chấm)</p>
+      <ul class="list" id="nameList"></ul>
+    </div>
+
+    <!-- Tab Content: Suffix Blacklist -->
+    <div class="tab-content" id="suffix-content">
+      <div class="input-group">
+        <input type="text" id="suffixInput" placeholder="VD: .xyz, .top, .click">
+        <button class="btn-add" id="addSuffix">+</button>
+      </div>
+      <p class="hint">Chặn domain kết thúc bằng đuôi này</p>
+      <ul class="list" id="suffixList"></ul>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
