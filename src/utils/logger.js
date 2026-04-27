@@ -16,34 +16,62 @@ const Logger = (() => {
     ERROR: 'ERROR'
   };
 
-  // In-memory cache (sync với storage định kỳ)
   let logsCache = [];
-  let isDirty = false;
+  let loadPromise = null;
+  let savePromise = null;
+  let isLoaded = false;
+  let mutationVersion = 0;
+  let savedVersion = 0;
 
   /**
    * Load logs từ storage vào cache
    */
   async function loadFromStorage() {
-    try {
-      const result = await chrome.storage.local.get(STORAGE_KEY);
-      logsCache = result[STORAGE_KEY] || [];
-    } catch (e) {
-      console.error('[Logger] Failed to load logs:', e);
-      logsCache = [];
+    if (isLoaded) {
+      return;
     }
+
+    if (!loadPromise) {
+      loadPromise = chrome.storage.local.get(STORAGE_KEY)
+        .then((result) => {
+          logsCache = Array.isArray(result[STORAGE_KEY]) ? result[STORAGE_KEY] : [];
+          isLoaded = true;
+        })
+        .catch((e) => {
+          console.error('[Logger] Failed to load logs:', e);
+          logsCache = [];
+          isLoaded = false;
+        })
+        .finally(() => {
+          loadPromise = null;
+        });
+    }
+
+    await loadPromise;
   }
 
   /**
    * Persist logs cache vào storage
    */
   async function saveToStorage() {
-    if (!isDirty) return;
-    
-    try {
-      await chrome.storage.local.set({ [STORAGE_KEY]: logsCache });
-      isDirty = false;
-    } catch (e) {
-      console.error('[Logger] Failed to save logs:', e);
+    while (savedVersion < mutationVersion) {
+      if (!savePromise) {
+        const snapshot = [...logsCache];
+        const targetVersion = mutationVersion;
+        savePromise = chrome.storage.local.set({ [STORAGE_KEY]: snapshot })
+          .then(() => {
+            savedVersion = Math.max(savedVersion, targetVersion);
+          })
+          .catch((e) => {
+            console.error('[Logger] Failed to save logs:', e);
+            throw e;
+          })
+          .finally(() => {
+            savePromise = null;
+          });
+      }
+
+      await savePromise;
     }
   }
 
@@ -53,7 +81,9 @@ const Logger = (() => {
    * @param {string} message - Nội dung log
    * @param {any} [data] - Dữ liệu bổ sung (optional)
    */
-  function addLog(level, message, data = null) {
+  async function addLog(level, message, data = null) {
+    await loadFromStorage();
+
     const entry = {
       timestamp: new Date().toISOString(),
       level,
@@ -61,19 +91,18 @@ const Logger = (() => {
       data: data ? JSON.stringify(data) : null
     };
 
-    // Thêm vào cache
     logsCache.push(entry);
 
-    // Giới hạn số log
     if (logsCache.length > MAX_LOGS) {
       logsCache = logsCache.slice(-MAX_LOGS);
     }
 
-    isDirty = true;
+    mutationVersion += 1;
 
-    // Log ra console để debug
     const consoleMethod = level === LEVEL.ERROR ? 'error' : 'warn';
     console[consoleMethod](`[AutoBlockTab] ${message}`, data || '');
+
+    await saveToStorage();
   }
 
   /**
@@ -81,8 +110,8 @@ const Logger = (() => {
    * @param {string} message 
    * @param {any} [data]
    */
-  function warn(message, data) {
-    addLog(LEVEL.WARN, message, data);
+  async function warn(message, data) {
+    await addLog(LEVEL.WARN, message, data);
   }
 
   /**
@@ -90,8 +119,8 @@ const Logger = (() => {
    * @param {string} message 
    * @param {any} [data]
    */
-  function error(message, data) {
-    addLog(LEVEL.ERROR, message, data);
+  async function error(message, data) {
+    await addLog(LEVEL.ERROR, message, data);
   }
 
   /**
@@ -108,8 +137,9 @@ const Logger = (() => {
    * @returns {Promise<void>}
    */
   async function clearLogs() {
+    await loadFromStorage();
     logsCache = [];
-    isDirty = true;
+    mutationVersion += 1;
     await saveToStorage();
   }
 
@@ -150,9 +180,6 @@ ${'='.repeat(30)}
       logs
     };
   }
-
-  // Auto-save định kỳ (mỗi 30 giây nếu có thay đổi)
-  setInterval(saveToStorage, 30000);
 
   // Load logs khi init
   loadFromStorage();

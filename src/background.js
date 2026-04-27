@@ -5,19 +5,30 @@
  */
 
 // Import utils
+importScripts('./utils/settings.js');
 importScripts('./utils/blocker.js');
 importScripts('./utils/logger.js');
 
-// Default settings
-const DEFAULT_SETTINGS = {
-  enabled: true,
-  nameBlacklist: [],
-  suffixBlacklist: [],
-  stats: {
-    blockedCount: 0,
-    lastBlocked: null
-  }
-};
+function isSpecialUrl(url) {
+  return !url ||
+    url === 'about:blank' ||
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('edge://') ||
+    url.startsWith('about:');
+}
+
+function normalizeSettings(settings) {
+  return {
+    enabled: settings.enabled !== false,
+    nameBlacklist: Array.isArray(settings.nameBlacklist) ? settings.nameBlacklist : [],
+    suffixBlacklist: Array.isArray(settings.suffixBlacklist) ? settings.suffixBlacklist : [],
+    stats: {
+      blockedCount: Number.isFinite(settings.stats?.blockedCount) ? settings.stats.blockedCount : 0,
+      lastBlocked: settings.stats?.lastBlocked || null
+    }
+  };
+}
 
 /**
  * Lấy settings từ storage (LUÔN load fresh - không cache)
@@ -26,14 +37,9 @@ const DEFAULT_SETTINGS = {
 async function getSettings() {
   try {
     const result = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-    console.log('[AutoBlockTab] Loaded settings:', {
-      enabled: result.enabled,
-      nameCount: result.nameBlacklist?.length || 0,
-      suffixCount: result.suffixBlacklist?.length || 0
-    });
-    return result;
+    return normalizeSettings(result);
   } catch (e) {
-    globalThis.Logger.error('Error loading settings', { error: e.message });
+    await globalThis.Logger.error('Error loading settings', { error: e.message });
     return DEFAULT_SETTINGS;
   }
 }
@@ -43,15 +49,20 @@ async function getSettings() {
  */
 async function updateStats() {
   try {
-    const settings = await getSettings();
-    const newStats = {
-      blockedCount: (settings.stats?.blockedCount || 0) + 1,
-      lastBlocked: new Date().toISOString()
+    const { stats } = await chrome.storage.sync.get({ stats: DEFAULT_SETTINGS.stats });
+    const currentStats = {
+      blockedCount: Number.isFinite(stats?.blockedCount) ? stats.blockedCount : 0,
+      lastBlocked: stats?.lastBlocked || null
     };
-    await chrome.storage.sync.set({ stats: newStats });
-    console.log('[AutoBlockTab] Stats updated:', newStats.blockedCount);
+
+    await chrome.storage.sync.set({
+      stats: {
+        blockedCount: currentStats.blockedCount + 1,
+        lastBlocked: new Date().toISOString()
+      }
+    });
   } catch (e) {
-    globalThis.Logger.error('Error updating stats', { error: e.message });
+    await globalThis.Logger.error('Error updating stats', { error: e.message });
   }
 }
 
@@ -59,61 +70,42 @@ async function updateStats() {
  * Kiểm tra và chặn tab nếu cần
  */
 async function checkAndBlockTab(tabId, url, source) {
-  // Bỏ qua các URL đặc biệt
-  if (!url || 
-      url === 'about:blank' ||
-      url.startsWith('chrome://') || 
-      url.startsWith('chrome-extension://') ||
-      url.startsWith('edge://') ||
-      url.startsWith('about:')) {
+  if (isSpecialUrl(url)) {
     return false;
   }
-
-  console.log(`[AutoBlockTab] Checking (${source}):`, url);
 
   try {
     const settings = await getSettings();
 
-    // Kiểm tra extension có được bật không
     if (!settings.enabled) {
-      console.log('[AutoBlockTab] Extension disabled, skipping');
       return false;
     }
 
-    const nameBlacklist = settings.nameBlacklist || [];
-    const suffixBlacklist = settings.suffixBlacklist || [];
-
-    // Kiểm tra có blacklist không
-    if (nameBlacklist.length === 0 && suffixBlacklist.length === 0) {
-      console.log('[AutoBlockTab] No blacklist rules, skipping');
+    if (settings.nameBlacklist.length === 0 && settings.suffixBlacklist.length === 0) {
       return false;
     }
 
-    // Kiểm tra URL có nên bị chặn không
     const result = globalThis.BlockerUtils.shouldBlockUrl(
       url,
-      nameBlacklist,
-      suffixBlacklist
+      settings.nameBlacklist,
+      settings.suffixBlacklist
     );
 
-    console.log('[AutoBlockTab] Check result:', result);
-
     if (result.blocked) {
-      // Đóng tab ngay lập tức
       await chrome.tabs.remove(tabId);
-      
-      // Cập nhật thống kê
       await updateStats();
-
-      console.log(`[AutoBlockTab] ✅ BLOCKED: ${url} (${result.reason}: ${result.matchedRule})`);
       return true;
     }
   } catch (e) {
-    globalThis.Logger.error('Error checking tab', { url, error: e.message });
+    await globalThis.Logger.error('Error checking tab', { source, url, error: e.message });
   }
 
   return false;
 }
+
+chrome.runtime.onSuspend.addListener(() => {
+  globalThis.Logger.flush();
+});
 
 // === Event Listeners ===
 
@@ -134,12 +126,3 @@ chrome.tabs.onCreated.addListener((tab) => {
   }
 });
 
-// Lắng nghe thay đổi settings từ popup (chỉ để log)
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'sync') {
-    console.log('[AutoBlockTab] Settings changed:', Object.keys(changes));
-  }
-});
-
-// Log khi service worker khởi động
-console.log('[AutoBlockTab] Service worker started - v1.0.2 (with Logger)');

@@ -20,17 +20,6 @@ const exportBtn = document.getElementById('exportBtn');
 const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
 
-// Default settings
-const DEFAULT_SETTINGS = {
-  enabled: true,
-  nameBlacklist: [],
-  suffixBlacklist: [],
-  stats: {
-    blockedCount: 0,
-    lastBlocked: null
-  }
-};
-
 /**
  * Load settings từ storage
  */
@@ -87,6 +76,37 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function normalizeBlacklistItems(items) {
+  if (!Array.isArray(items)) {
+    throw new Error('Danh sách blacklist phải là mảng');
+  }
+
+  return [...new Set(
+    items.map((item) => {
+      if (typeof item !== 'string') {
+        throw new Error('Blacklist chỉ được chứa chuỗi');
+      }
+
+      return item.trim().toLowerCase();
+    }).filter(Boolean)
+  )];
+}
+
+function parseImportData(importData) {
+  if (!isPlainObject(importData) || typeof importData.version !== 'string' || !isPlainObject(importData.data)) {
+    throw new Error('File không đúng định dạng');
+  }
+
+  return {
+    nameBlacklist: normalizeBlacklistItems(importData.data.nameBlacklist ?? []),
+    suffixBlacklist: normalizeBlacklistItems(importData.data.suffixBlacklist ?? [])
+  };
+}
+
 /**
  * Thêm item vào blacklist
  */
@@ -123,6 +143,10 @@ async function removeFromBlacklist(type, index) {
     const settings = await chrome.storage.sync.get({ [key]: [] });
     const list = settings[key];
 
+    if (index < 0 || index >= list.length) {
+      return;
+    }
+
     list.splice(index, 1);
     await chrome.storage.sync.set({ [key]: list });
     
@@ -153,9 +177,24 @@ function switchTab(tabName) {
   tabs.forEach(tab => {
     tab.classList.toggle('active', tab.dataset.tab === tabName);
   });
-  
+
   tabContents.forEach(content => {
     content.classList.toggle('active', content.id === `${tabName}-content`);
+  });
+}
+
+function wireBlacklistInput(type, input, button) {
+  const submit = async () => {
+    await addToBlacklist(type, input.value);
+    input.value = '';
+    input.focus();
+  };
+
+  button.addEventListener('click', submit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      submit();
+    }
   });
 }
 
@@ -173,33 +212,8 @@ tabs.forEach(tab => {
   });
 });
 
-// Add name
-addNameBtn.addEventListener('click', () => {
-  addToBlacklist('name', nameInput.value);
-  nameInput.value = '';
-  nameInput.focus();
-});
-
-nameInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    addToBlacklist('name', nameInput.value);
-    nameInput.value = '';
-  }
-});
-
-// Add suffix
-addSuffixBtn.addEventListener('click', () => {
-  addToBlacklist('suffix', suffixInput.value);
-  suffixInput.value = '';
-  suffixInput.focus();
-});
-
-suffixInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    addToBlacklist('suffix', suffixInput.value);
-    suffixInput.value = '';
-  }
-});
+wireBlacklistInput('name', nameInput, addNameBtn);
+wireBlacklistInput('suffix', suffixInput, addSuffixBtn);
 
 // Remove items (event delegation)
 document.addEventListener('click', (e) => {
@@ -265,13 +279,7 @@ async function importBlacklist(file) {
   try {
     const text = await file.text();
     const importData = JSON.parse(text);
-
-    // Validate format
-    if (!importData.data || !importData.version) {
-      throw new Error('File không đúng định dạng');
-    }
-
-    const { nameBlacklist = [], suffixBlacklist = [] } = importData.data;
+    const { nameBlacklist, suffixBlacklist } = parseImportData(importData);
 
     // Confirm với user
     const currentSettings = await chrome.storage.sync.get({

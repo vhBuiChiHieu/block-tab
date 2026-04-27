@@ -4,80 +4,120 @@
  * @version 1.0.0
  */
 
+function parseHostname(url) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch (e) {
+    return null;
+  }
+}
+
+function normalizeNameRules(nameBlacklist) {
+  return nameBlacklist.map((rule) => ({
+    original: rule,
+    normalized: rule.toLowerCase()
+  }));
+}
+
+function normalizeSuffixRules(suffixBlacklist) {
+  return suffixBlacklist.map((rule) => ({
+    original: rule,
+    normalized: rule.toLowerCase().startsWith('.') ? rule.toLowerCase() : `.${rule.toLowerCase()}`
+  }));
+}
+
+function checkDomainNameFromHostname(hostname, nameBlacklist) {
+  const parts = hostname.split('.');
+  const normalizedRules = normalizeNameRules(nameBlacklist);
+
+  for (const part of parts) {
+    for (const rule of normalizedRules) {
+      if (part === rule.normalized) {
+        return rule.original;
+      }
+    }
+  }
+
+  return null;
+}
+
+function checkDomainSuffixFromHostname(hostname, suffixBlacklist) {
+  const normalizedRules = normalizeSuffixRules(suffixBlacklist);
+
+  for (const rule of normalizedRules) {
+    if (hostname.endsWith(rule.normalized)) {
+      return rule.original;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Kiểm tra URL có match với blacklist tên domain không
  * Ví dụ: "ads" sẽ match với "super.ads.example.com"
- * 
+ *
  * @param {string} url - URL cần kiểm tra
  * @param {string[]} nameBlacklist - Danh sách tên domain cần chặn
  * @returns {string|null} - Tên đã match hoặc null nếu không match
  */
 function checkDomainName(url, nameBlacklist) {
-  if (!url || !nameBlacklist || nameBlacklist.length === 0) {
+  if (!nameBlacklist || nameBlacklist.length === 0) {
     return null;
   }
 
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    const parts = hostname.split('.');
-
-    for (const part of parts) {
-      for (const blocked of nameBlacklist) {
-        if (part === blocked.toLowerCase()) {
-          return blocked;
-        }
-      }
-    }
-  } catch (e) {
-    // URL không hợp lệ, bỏ qua
+  const hostname = parseHostname(url);
+  if (!hostname) {
+    return null;
   }
 
-  return null;
+  return checkDomainNameFromHostname(hostname, nameBlacklist);
 }
 
 /**
  * Kiểm tra URL có match với blacklist đuôi domain không
  * Ví dụ: ".xyz" sẽ match với "freewin.xyz"
- * 
+ *
  * @param {string} url - URL cần kiểm tra
  * @param {string[]} suffixBlacklist - Danh sách đuôi domain cần chặn
  * @returns {string|null} - Đuôi đã match hoặc null nếu không match
  */
 function checkDomainSuffix(url, suffixBlacklist) {
-  if (!url || !suffixBlacklist || suffixBlacklist.length === 0) {
+  if (!suffixBlacklist || suffixBlacklist.length === 0) {
     return null;
   }
 
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-
-    for (const suffix of suffixBlacklist) {
-      const normalizedSuffix = suffix.toLowerCase().startsWith('.') 
-        ? suffix.toLowerCase() 
-        : '.' + suffix.toLowerCase();
-      
-      if (hostname.endsWith(normalizedSuffix)) {
-        return suffix;
-      }
-    }
-  } catch (e) {
-    // URL không hợp lệ, bỏ qua
+  const hostname = parseHostname(url);
+  if (!hostname) {
+    return null;
   }
 
-  return null;
+  return checkDomainSuffixFromHostname(hostname, suffixBlacklist);
 }
 
 /**
  * Kiểm tra URL có nên bị chặn không
- * 
+ *
  * @param {string} url - URL cần kiểm tra
  * @param {string[]} nameBlacklist - Blacklist tên domain
  * @param {string[]} suffixBlacklist - Blacklist đuôi domain
  * @returns {{ blocked: boolean, reason: string|null, matchedRule: string|null }}
  */
 function shouldBlockUrl(url, nameBlacklist, suffixBlacklist) {
-  // Kiểm tra tên domain trước
-  const nameMatch = checkDomainName(url, nameBlacklist);
+  const hostname = parseHostname(url);
+  if (!hostname) {
+    return {
+      blocked: false,
+      reason: null,
+      matchedRule: null
+    };
+  }
+
+  const nameMatch = checkDomainNameFromHostname(hostname, nameBlacklist || []);
   if (nameMatch) {
     return {
       blocked: true,
@@ -86,8 +126,7 @@ function shouldBlockUrl(url, nameBlacklist, suffixBlacklist) {
     };
   }
 
-  // Kiểm tra đuôi domain
-  const suffixMatch = checkDomainSuffix(url, suffixBlacklist);
+  const suffixMatch = checkDomainSuffixFromHostname(hostname, suffixBlacklist || []);
   if (suffixMatch) {
     return {
       blocked: true,
