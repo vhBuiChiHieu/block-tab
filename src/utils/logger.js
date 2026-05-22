@@ -1,6 +1,6 @@
 /**
  * Auto Block Tab - Logger Module
- * Chỉ ghi log WARNING và ERROR
+ * Ghi log WARNING/ERROR và lịch sử tab đã chặn
  * Lưu vào chrome.storage.local để có thể export/submit sau này
  * @version 1.0.0
  */
@@ -8,7 +8,9 @@
 const Logger = (() => {
   // Config
   const MAX_LOGS = 100; // Giới hạn số log lưu trữ
+  const MAX_RECENT_BLOCKED = 50;
   const STORAGE_KEY = 'autoBlockTab_logs';
+  const RECENT_BLOCKED_KEY = 'autoBlockTab_recentBlocked';
 
   // Log levels
   const LEVEL = {
@@ -143,6 +145,24 @@ const Logger = (() => {
     await saveToStorage();
   }
 
+  async function addRecentBlocked(entry) {
+    const result = await chrome.storage.local.get({ [RECENT_BLOCKED_KEY]: [] });
+    const entries = Array.isArray(result[RECENT_BLOCKED_KEY]) ? result[RECENT_BLOCKED_KEY] : [];
+    entries.unshift(entry);
+    await chrome.storage.local.set({
+      [RECENT_BLOCKED_KEY]: entries.slice(0, MAX_RECENT_BLOCKED)
+    });
+  }
+
+  async function getRecentBlocked() {
+    const result = await chrome.storage.local.get({ [RECENT_BLOCKED_KEY]: [] });
+    return Array.isArray(result[RECENT_BLOCKED_KEY]) ? result[RECENT_BLOCKED_KEY] : [];
+  }
+
+  async function clearRecentBlocked() {
+    await chrome.storage.local.set({ [RECENT_BLOCKED_KEY]: [] });
+  }
+
   /**
    * Export logs thành string để download/submit
    * @returns {Promise<string>}
@@ -190,6 +210,9 @@ ${'='.repeat(30)}
     error,
     getLogs,
     clearLogs,
+    addRecentBlocked,
+    getRecentBlocked,
+    clearRecentBlocked,
     exportLogs,
     getSubmitPayload,
     // Force save (gọi trước khi service worker bị terminate)

@@ -7,6 +7,7 @@ const DEFAULT_SETTINGS = {
   enabled: true,
   nameBlacklist: [],
   suffixBlacklist: [],
+  whitelistDomains: [],
   stats: {
     blockedCount: 0,
     lastBlocked: null

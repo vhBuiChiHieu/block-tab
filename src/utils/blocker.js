@@ -57,6 +57,19 @@ function checkDomainSuffixFromHostname(hostname, suffixBlacklist) {
   return null;
 }
 
+function checkWhitelistFromHostname(hostname, whitelistDomains) {
+  const normalizedRules = normalizeNameRules(whitelistDomains || []);
+
+  for (const rule of normalizedRules) {
+    const normalized = rule.normalized.startsWith('.') ? rule.normalized.slice(1) : rule.normalized;
+    if (hostname === normalized || hostname.endsWith(`.${normalized}`)) {
+      return rule.original;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Kiểm tra URL có match với blacklist tên domain không
  * Ví dụ: "ads" sẽ match với "super.ads.example.com"
@@ -142,11 +155,68 @@ function shouldBlockUrl(url, nameBlacklist, suffixBlacklist) {
   };
 }
 
+function checkWhitelistUrl(url, whitelistDomains) {
+  const hostname = parseHostname(url);
+  if (!hostname) {
+    return {
+      matched: false,
+      hostname: null,
+      matchedRule: null
+    };
+  }
+
+  const matchedRule = checkWhitelistFromHostname(hostname, whitelistDomains);
+  return {
+    matched: Boolean(matchedRule),
+    hostname,
+    matchedRule
+  };
+}
+
+function getBlockDecision(url, settings) {
+  const hostname = parseHostname(url);
+  if (!hostname) {
+    return {
+      blocked: false,
+      whitelisted: false,
+      hostname: null,
+      reason: null,
+      matchedRule: null,
+      whitelistRule: null
+    };
+  }
+
+  const whitelistRule = checkWhitelistFromHostname(hostname, settings.whitelistDomains || []);
+  if (whitelistRule) {
+    return {
+      blocked: false,
+      whitelisted: true,
+      hostname,
+      reason: 'whitelist',
+      matchedRule: null,
+      whitelistRule
+    };
+  }
+
+  const blockResult = shouldBlockUrl(url, settings.nameBlacklist || [], settings.suffixBlacklist || []);
+  return {
+    blocked: blockResult.blocked,
+    whitelisted: false,
+    hostname,
+    reason: blockResult.reason,
+    matchedRule: blockResult.matchedRule,
+    whitelistRule: null
+  };
+}
+
 // Export cho service worker
 if (typeof globalThis !== 'undefined') {
   globalThis.BlockerUtils = {
+    getHostname: parseHostname,
     checkDomainName,
     checkDomainSuffix,
+    checkWhitelistUrl,
+    getBlockDecision,
     shouldBlockUrl
   };
 }

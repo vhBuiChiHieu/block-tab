@@ -39,6 +39,7 @@
     <div class="tabs">
       <button class="tab active" data-tab="name">Tên Domain</button>
       <button class="tab" data-tab="suffix">Đuôi Domain</button>
+      <button class="tab" data-tab="whitelist">Whitelist</button>
     </div>
 
     <!-- Tab Content: Name Blacklist -->
@@ -48,6 +49,7 @@
         <button class="btn-add" id="addName">+</button>
       </div>
       <p class="hint">Chặn domain có chứa tên này (giữa 2 dấu chấm)</p>
+      <p class="preview" id="namePreview"></p>
       <ul class="list" id="nameList"></ul>
     </div>
 
@@ -58,11 +60,33 @@
         <button class="btn-add" id="addSuffix">+</button>
       </div>
       <p class="hint">Chặn domain kết thúc bằng đuôi này</p>
+      <p class="preview" id="suffixPreview"></p>
       <ul class="list" id="suffixList"></ul>
     </div>
+
+    <!-- Tab Content: Whitelist -->
+    <div class="tab-content" id="whitelist-content">
+      <div class="input-group">
+        <input type="text" id="whitelistInput" placeholder="VD: example.com, trusted.site">
+        <button class="btn-add" id="addWhitelist">+</button>
+      </div>
+      <p class="hint">Luôn cho phép domain này và các subdomain</p>
+      <p class="preview" id="whitelistPreview"></p>
+      <ul class="list" id="whitelistList"></ul>
+    </div>
+
+    <section class="recent-blocked">
+      <div class="section-header">
+        <h2>Gần đây đã chặn</h2>
+        <button class="btn-clear" id="clearRecentBlocked">Xóa</button>
+      </div>
+      <ul class="recent-list" id="recentBlockedList"></ul>
+    </section>
   </div>
 
   <script src="../utils/settings.js"></script>
+  <script src="../utils/blocker.js"></script>
+  <script src="../utils/logger.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

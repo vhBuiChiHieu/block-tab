@@ -23,6 +23,7 @@ function normalizeSettings(settings) {
     enabled: settings.enabled !== false,
     nameBlacklist: Array.isArray(settings.nameBlacklist) ? settings.nameBlacklist : [],
     suffixBlacklist: Array.isArray(settings.suffixBlacklist) ? settings.suffixBlacklist : [],
+    whitelistDomains: Array.isArray(settings.whitelistDomains) ? settings.whitelistDomains : [],
     stats: {
       blockedCount: Number.isFinite(settings.stats?.blockedCount) ? settings.stats.blockedCount : 0,
       lastBlocked: settings.stats?.lastBlocked || null
@@ -85,15 +86,19 @@ async function checkAndBlockTab(tabId, url, source) {
       return false;
     }
 
-    const result = globalThis.BlockerUtils.shouldBlockUrl(
-      url,
-      settings.nameBlacklist,
-      settings.suffixBlacklist
-    );
+    const result = globalThis.BlockerUtils.getBlockDecision(url, settings);
 
     if (result.blocked) {
       await chrome.tabs.remove(tabId);
       await updateStats();
+      await globalThis.Logger.addRecentBlocked({
+        timestamp: new Date().toISOString(),
+        url,
+        hostname: result.hostname,
+        reason: result.reason,
+        matchedRule: result.matchedRule,
+        source
+      });
       return true;
     }
   } catch (e) {
