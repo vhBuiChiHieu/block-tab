@@ -1,7 +1,7 @@
 /**
  * Auto Block Tab - Popup Script
  * Quản lý giao diện popup và tương tác với storage
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 // DOM Elements

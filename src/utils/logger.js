@@ -2,7 +2,7 @@
  * Auto Block Tab - Logger Module
  * Ghi log WARNING/ERROR và lịch sử tab đã chặn
  * Lưu vào chrome.storage.local để có thể export/submit sau này
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 const Logger = (() => {
@@ -194,7 +194,7 @@ ${'='.repeat(30)}
   async function getSubmitPayload() {
     const logs = await getLogs();
     return {
-      extensionVersion: '1.0.0',
+      extensionVersion: chrome.runtime.getManifest().version,
       exportedAt: new Date().toISOString(),
       userAgent: navigator.userAgent,
       logs

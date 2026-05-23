@@ -1,7 +1,7 @@
 /**
  * Auto Block Tab - Background Service Worker
  * Xử lý việc chặn/đóng tab quảng cáo
- * @version 1.0.1
+ * @version 1.1.0
  */
 
 // Import utils
@@ -45,26 +45,32 @@ async function getSettings() {
   }
 }
 
+// Serialize read-modify-write để tránh race condition khi nhiều tab bị block cùng lúc
+let _statsQueue = Promise.resolve();
+
 /**
  * Cập nhật thống kê khi chặn tab
  */
 async function updateStats() {
-  try {
-    const { stats } = await chrome.storage.sync.get({ stats: DEFAULT_SETTINGS.stats });
-    const currentStats = {
-      blockedCount: Number.isFinite(stats?.blockedCount) ? stats.blockedCount : 0,
-      lastBlocked: stats?.lastBlocked || null
-    };
+  _statsQueue = _statsQueue.then(async () => {
+    try {
+      const { stats } = await chrome.storage.sync.get({ stats: DEFAULT_SETTINGS.stats });
+      const currentStats = {
+        blockedCount: Number.isFinite(stats?.blockedCount) ? stats.blockedCount : 0,
+        lastBlocked: stats?.lastBlocked || null
+      };
 
-    await chrome.storage.sync.set({
-      stats: {
-        blockedCount: currentStats.blockedCount + 1,
-        lastBlocked: new Date().toISOString()
-      }
-    });
-  } catch (e) {
-    await globalThis.Logger.error('Error updating stats', { error: e.message });
-  }
+      await chrome.storage.sync.set({
+        stats: {
+          blockedCount: currentStats.blockedCount + 1,
+          lastBlocked: new Date().toISOString()
+        }
+      });
+    } catch (e) {
+      await globalThis.Logger.error('Error updating stats', { error: e.message });
+    }
+  });
+  await _statsQueue;
 }
 
 /**
