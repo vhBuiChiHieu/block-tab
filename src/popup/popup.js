@@ -22,6 +22,8 @@ const suffixPreview = document.getElementById('suffixPreview');
 const whitelistPreview = document.getElementById('whitelistPreview');
 const recentBlockedList = document.getElementById('recentBlockedList');
 const clearRecentBlockedBtn = document.getElementById('clearRecentBlocked');
+const mainTabs = document.querySelectorAll('.main-tab');
+const viewPanels = document.querySelectorAll('.view-panel');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = document.querySelectorAll('.tab-content');
 const exportBtn = document.getElementById('exportBtn');
@@ -193,6 +195,19 @@ async function toggleExtension(enabled) {
 }
 
 /**
+ * Chuyển màn hình chính
+ */
+function switchView(viewName) {
+  mainTabs.forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.view === viewName);
+  });
+
+  viewPanels.forEach(panel => {
+    panel.classList.toggle('active', panel.id === `${viewName}-view`);
+  });
+}
+
+/**
  * Chuyển tab
  */
 function switchTab(tabName) {
@@ -325,6 +340,13 @@ async function clearRecentBlocked() {
 // Toggle extension
 enableToggle.addEventListener('change', (e) => {
   toggleExtension(e.target.checked);
+});
+
+// Main view switching
+mainTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    switchView(tab.dataset.view);
+  });
 });
 
 // Tab switching

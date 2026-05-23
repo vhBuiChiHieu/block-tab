@@ -7,20 +7,25 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
+  <div class="app-shell">
     <header class="header">
-      <h1 class="title">🛡️ Auto Block Tab</h1>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">AB</div>
+        <div>
+          <p class="eyebrow">Chrome Extension</p>
+          <h1 class="title">Auto Block Tab</h1>
+        </div>
+      </div>
+
       <div class="header-actions">
-        <!-- Sync icons -->
-        <div class="sync-icons">
-          <button class="icon-btn" id="importBtn" title="Nhập từ file JSON">📥</button>
-          <button class="icon-btn" id="exportBtn" title="Xuất ra file JSON">📤</button>
+        <div class="sync-icons" aria-label="Nhập xuất cấu hình">
+          <button class="icon-btn" id="importBtn" type="button" title="Nhập từ file JSON">Nhập</button>
+          <button class="icon-btn" id="exportBtn" type="button" title="Xuất ra file JSON">Xuất</button>
           <input type="file" id="importFile" accept=".json" hidden>
         </div>
-        <!-- Toggle -->
+
         <div class="toggle-container">
-          <label class="toggle">
+          <label class="toggle" aria-label="Bật tắt extension">
             <input type="checkbox" id="enableToggle" checked>
             <span class="slider"></span>
           </label>
@@ -29,59 +34,85 @@
       </div>
     </header>
 
-    <!-- Stats -->
-    <div class="stats">
-      <span class="stat-count" id="blockedCount">0</span>
-      <span class="stat-label">tab đã chặn</span>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab active" data-tab="name">Tên Domain</button>
-      <button class="tab" data-tab="suffix">Đuôi Domain</button>
-      <button class="tab" data-tab="whitelist">Whitelist</button>
-    </div>
-
-    <!-- Tab Content: Name Blacklist -->
-    <div class="tab-content active" id="name-content">
-      <div class="input-group">
-        <input type="text" id="nameInput" placeholder="VD: ads, tracking, popup">
-        <button class="btn-add" id="addName">+</button>
+    <main>
+      <div class="main-tabs" role="tablist" aria-label="Điều hướng popup">
+        <button class="main-tab active" type="button" data-view="dashboard">Tổng quan</button>
+        <button class="main-tab" type="button" data-view="settings">Cài đặt</button>
       </div>
-      <p class="hint">Chặn domain có chứa tên này (giữa 2 dấu chấm)</p>
-      <p class="preview" id="namePreview"></p>
-      <ul class="list" id="nameList"></ul>
-    </div>
 
-    <!-- Tab Content: Suffix Blacklist -->
-    <div class="tab-content" id="suffix-content">
-      <div class="input-group">
-        <input type="text" id="suffixInput" placeholder="VD: .xyz, .top, .click">
-        <button class="btn-add" id="addSuffix">+</button>
-      </div>
-      <p class="hint">Chặn domain kết thúc bằng đuôi này</p>
-      <p class="preview" id="suffixPreview"></p>
-      <ul class="list" id="suffixList"></ul>
-    </div>
+      <section class="view-panel active" id="dashboard-view">
+        <section class="stats" aria-label="Thống kê chặn tab">
+          <div>
+            <p class="eyebrow">Protected session</p>
+            <span class="stat-count" id="blockedCount">0</span>
+            <span class="stat-label">tab đã chặn</span>
+          </div>
+          <div class="stat-copy">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span>Đang bảo vệ phiên duyệt web</span>
+          </div>
+        </section>
 
-    <!-- Tab Content: Whitelist -->
-    <div class="tab-content" id="whitelist-content">
-      <div class="input-group">
-        <input type="text" id="whitelistInput" placeholder="VD: example.com, trusted.site">
-        <button class="btn-add" id="addWhitelist">+</button>
-      </div>
-      <p class="hint">Luôn cho phép domain này và các subdomain</p>
-      <p class="preview" id="whitelistPreview"></p>
-      <ul class="list" id="whitelistList"></ul>
-    </div>
+        <section class="recent-blocked dashboard-recent">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Activity</p>
+              <h2>Gần đây đã chặn</h2>
+            </div>
+            <button class="btn-clear" id="clearRecentBlocked" type="button">Xóa</button>
+          </div>
+          <ul class="recent-list" id="recentBlockedList"></ul>
+        </section>
+      </section>
 
-    <section class="recent-blocked">
-      <div class="section-header">
-        <h2>Gần đây đã chặn</h2>
-        <button class="btn-clear" id="clearRecentBlocked">Xóa</button>
-      </div>
-      <ul class="recent-list" id="recentBlockedList"></ul>
-    </section>
+      <section class="view-panel" id="settings-view">
+        <section class="rule-card">
+          <div class="settings-heading">
+            <div>
+              <p class="eyebrow">Rules</p>
+              <h2>Cài đặt bộ lọc</h2>
+            </div>
+            <p>Quản lý domain bị chặn và danh sách luôn cho phép.</p>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Loại rule">
+            <button class="tab active" type="button" data-tab="name">Tên Domain</button>
+            <button class="tab" type="button" data-tab="suffix">Đuôi Domain</button>
+            <button class="tab" type="button" data-tab="whitelist">Whitelist</button>
+          </div>
+
+          <div class="tab-content active" id="name-content">
+            <div class="input-group">
+              <input type="text" id="nameInput" placeholder="VD: ads, tracking, popup">
+              <button class="btn-add" id="addName" type="button">Thêm</button>
+            </div>
+            <p class="hint">Chặn domain có chứa tên này (giữa 2 dấu chấm)</p>
+            <p class="preview" id="namePreview"></p>
+            <ul class="list" id="nameList"></ul>
+          </div>
+
+          <div class="tab-content" id="suffix-content">
+            <div class="input-group">
+              <input type="text" id="suffixInput" placeholder="VD: .xyz, .top, .click">
+              <button class="btn-add" id="addSuffix" type="button">Thêm</button>
+            </div>
+            <p class="hint">Chặn domain kết thúc bằng đuôi này</p>
+            <p class="preview" id="suffixPreview"></p>
+            <ul class="list" id="suffixList"></ul>
+          </div>
+
+          <div class="tab-content" id="whitelist-content">
+            <div class="input-group">
+              <input type="text" id="whitelistInput" placeholder="VD: example.com, trusted.site">
+              <button class="btn-add" id="addWhitelist" type="button">Thêm</button>
+            </div>
+            <p class="hint">Luôn cho phép domain này và các subdomain</p>
+            <p class="preview" id="whitelistPreview"></p>
+            <ul class="list" id="whitelistList"></ul>
+          </div>
+        </section>
+      </section>
+    </main>
   </div>
 
   <script src="../utils/settings.js"></script>
