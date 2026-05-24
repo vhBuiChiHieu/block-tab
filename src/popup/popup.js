@@ -31,6 +31,7 @@ const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
 
 let activeTabUrl = null;
+const listMutationPromises = new Map();
 
 /**
  * Load settings từ storage
@@ -103,6 +104,26 @@ function getRuleConfig(type) {
   return configs[type];
 }
 
+async function mutateRuleList(type, mutation) {
+  const config = getRuleConfig(type);
+  const previousMutation = listMutationPromises.get(config.key) || Promise.resolve();
+  const nextMutation = previousMutation.then(async () => {
+    const settings = await chrome.storage.sync.get({ [config.key]: [] });
+    const list = Array.isArray(settings[config.key]) ? settings[config.key] : [];
+    const nextList = mutation([...list]);
+
+    if (!nextList) {
+      return;
+    }
+
+    await chrome.storage.sync.set({ [config.key]: nextList });
+    loadSettings();
+  });
+
+  listMutationPromises.set(config.key, nextMutation.catch(() => {}));
+  await nextMutation;
+}
+
 function normalizeRuleItems(items, label = 'Danh sách') {
   if (!Array.isArray(items)) {
     throw new Error(`${label} phải là mảng`);
@@ -139,20 +160,13 @@ async function addToBlacklist(type, value) {
   if (!trimmedValue) return;
 
   try {
-    const config = getRuleConfig(type);
-    const settings = await chrome.storage.sync.get({ [config.key]: [] });
-    const list = settings[config.key];
+    await mutateRuleList(type, (list) => {
+      if (list.includes(trimmedValue)) {
+        return null;
+      }
 
-    // Kiểm tra trùng lặp
-    if (list.includes(trimmedValue)) {
-      return;
-    }
-
-    list.push(trimmedValue);
-    await chrome.storage.sync.set({ [config.key]: list });
-
-    // Reload list
-    loadSettings();
+      return [...list, trimmedValue];
+    });
   } catch (e) {
     console.error('Error adding to blacklist:', e);
   }
@@ -163,19 +177,13 @@ async function addToBlacklist(type, value) {
  */
 async function removeFromBlacklist(type, index) {
   try {
-    const config = getRuleConfig(type);
-    const settings = await chrome.storage.sync.get({ [config.key]: [] });
-    const list = settings[config.key];
+    await mutateRuleList(type, (list) => {
+      if (index < 0 || index >= list.length) {
+        return null;
+      }
 
-    if (index < 0 || index >= list.length) {
-      return;
-    }
-
-    list.splice(index, 1);
-    await chrome.storage.sync.set({ [config.key]: list });
-
-    // Reload list
-    loadSettings();
+      return list.filter((_, itemIndex) => itemIndex !== index);
+    });
   } catch (e) {
     console.error('Error removing from blacklist:', e);
   }

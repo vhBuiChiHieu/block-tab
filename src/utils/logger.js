@@ -21,6 +21,7 @@ const Logger = (() => {
   let logsCache = [];
   let loadPromise = null;
   let savePromise = null;
+  let recentBlockedMutationPromise = Promise.resolve();
   let isLoaded = false;
   let mutationVersion = 0;
   let savedVersion = 0;
@@ -146,12 +147,17 @@ const Logger = (() => {
   }
 
   async function addRecentBlocked(entry) {
-    const result = await chrome.storage.local.get({ [RECENT_BLOCKED_KEY]: [] });
-    const entries = Array.isArray(result[RECENT_BLOCKED_KEY]) ? result[RECENT_BLOCKED_KEY] : [];
-    entries.unshift(entry);
-    await chrome.storage.local.set({
-      [RECENT_BLOCKED_KEY]: entries.slice(0, MAX_RECENT_BLOCKED)
+    const nextMutation = recentBlockedMutationPromise.then(async () => {
+      const result = await chrome.storage.local.get({ [RECENT_BLOCKED_KEY]: [] });
+      const entries = Array.isArray(result[RECENT_BLOCKED_KEY]) ? result[RECENT_BLOCKED_KEY] : [];
+      entries.unshift(entry);
+      await chrome.storage.local.set({
+        [RECENT_BLOCKED_KEY]: entries.slice(0, MAX_RECENT_BLOCKED)
+      });
     });
+
+    recentBlockedMutationPromise = nextMutation.catch(() => {});
+    await nextMutation;
   }
 
   async function getRecentBlocked() {
